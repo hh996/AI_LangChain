@@ -1,0 +1,10 @@
+docs
+.env
+.idea
+_pycache
+
+# PyCharm
+.idea/
+
+# Python
+__pycache__/
