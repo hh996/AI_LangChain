@@ -18,14 +18,28 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
 
+def retrieve_relevant_context(query, documents, embedding_model, index, top_k=3):
+    query_vec = embedding_model.encode([query], convert_to_numpy=True)  # 将查询转为向量
+    scores, indices = index.search(query_vec, top_k)
+
+    context_parts = []
+    for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
+        # 添加相似度分数信息
+        similarity = 1 / (1 + score)  # 转换为相似度分数
+        context_parts.append(
+            f"[参考资料 {i + 1}] (相似度: {similarity:.3f})\n{documents[idx]}"
+        )
+
+    return "\n\n".join(context_parts)
+
 class RetrievalMode(Enum):
-    NO_FILE_RETRIEVER = 0
-    WITH_FILE_RETRIEVER = 1
+    NO_FILE_RETRIEVER = 0   # 不使用知识库
+    WITH_FILE_RETRIEVER = 1   # 使用知识库
 
 
 class SearchMode(Enum):
-    LOCAL = 0
-    WEB = 1
+    LOCAL = 0   # 本地问答
+    WEB = 1   # 网络搜索
 
 
 
@@ -43,10 +57,6 @@ class RetrievalChain:
         self.output_parser = StrOutputParser()
 
         # 初始化提示模板
-        # self.prompt = ChatPromptTemplate.from_messages([
-        #     ("system", "你是一个基于知识库回答问题的助手。以下是相关文档内容：{context}"),
-        #     ("human", "问题：{question}")
-        # ])
         self.prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", "你是一个AI助手"),
@@ -57,28 +67,20 @@ class RetrievalChain:
         # 对话缓存内存
         self.memory = ConversationBufferMemory(return_messages=True)
 
-        # 初始化文本嵌入模型
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2", model_kwargs={"device": "cuda"})
-
         self.chat_history = []
         self.search_mode = SearchMode.LOCAL
         self.retriever_mode = RetrievalMode.NO_FILE_RETRIEVER
-        self.vectorstore = None
         self.chain = None
 
-    @staticmethod
-    def format_docs(docs):
-        return "\n\n".join(doc.page_content for doc in docs)
+        self.docs = None
+        self.emb_model = None
+        self.index = None
 
     def web_search(self, query: str) -> str:
         return self.search.run(query)
 
     def build_chain(self, runnable):
         self.chain = RunnableSequence(
-            # {
-            #     "context": runnable,
-            #     "question": RunnablePassthrough()
-            # },
             {
                 "context": runnable,
                 "history": RunnableLambda(self.memory.load_memory_variables) | itemgetter("history"),
@@ -91,9 +93,11 @@ class RetrievalChain:
     def invoke(self, query: str) -> str:
         # 是否加载知识库
         if self.retriever_mode == RetrievalMode.WITH_FILE_RETRIEVER:
-            runnable = self.vectorstore.as_retriever(search_kwargs={"k": 2}) | self.format_docs
-        else:
-            runnable = RunnablePassthrough()
+            context = retrieve_relevant_context(
+                query, self.docs, self.emb_model, self.index, top_k=2
+            )
+            query = f"""你是一个智能助手，请基于以下资料和之前的对话历史，自然地回答用户的问题: {query}。\n{context}\n。"""
+        runnable = RunnablePassthrough()
         # 是否网络搜索
         if self.search_mode == SearchMode.WEB:
             runnable |= RunnableLambda(self.web_search)
