@@ -109,3 +109,5 @@ AI_LangChain/
 4. **内存使用**: 向量数据库会占用一定的内存空间
 
 ## 🐛 成果展示
+
+![](https://github.com/hh996/AI_LangChain/blob/main/demo_show.png)
