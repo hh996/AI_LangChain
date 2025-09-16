@@ -112,6 +112,8 @@ def upload_file(files: list[gradio.utils.NamedString]):
 def submit_message(message, use_web):
     if use_web == "使用":
         retrieval_chain.search_mode = SearchMode.WEB
+    else:
+        retrieval_chain.search_mode = SearchMode.LOCAL
     retrieval_chain.chat_history.append(gr.ChatMessage(role="user", content=message))
     retrieval_chain.chat_history.append(gr.ChatMessage(role="assistant", content=retrieval_chain.invoke(message)))
     return "", retrieval_chain.chat_history
