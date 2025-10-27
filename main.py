@@ -158,4 +158,4 @@ except Exception as e:
     print(f"检索链初始化失败: {e}")
 print("正在启动 Gradio 界面...")
 # 记得关VPN
-demo.launch()
+demo.launch(server_name="0.0.0.0", server_port=7860)    # Gradio 默认绑定 127.0.0.1，容器内需绑定 0.0.0.0 才能从宿主机访问。如果不构建image这里可以改成demo.launch()

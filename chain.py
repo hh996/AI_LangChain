@@ -1,16 +1,10 @@
-from operator import itemgetter
-
 from dotenv import load_dotenv
-from langchain.memory import ConversationBufferMemory
-from langchain_core.runnables import RunnableLambda
 import os
 
 from enum import Enum
-from langchain_core.runnables import RunnableSequence, RunnablePassthrough
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.utilities import SerpAPIWrapper
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 
 # 加载.env文件中的环境变量
@@ -60,17 +54,13 @@ class RetrievalChain:
         self.prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", "你是一个AI助手"),
-                ("human", "{context}"),
-                MessagesPlaceholder(variable_name="history"),
+                ("human", "{input}"),
             ]
         )
-        # 对话缓存内存
-        self.memory = ConversationBufferMemory(return_messages=True)
 
         self.chat_history = []
         self.search_mode = SearchMode.LOCAL
         self.retriever_mode = RetrievalMode.NO_FILE_RETRIEVER
-        self.chain = None
 
         self.docs = None
         self.emb_model = None
@@ -79,17 +69,6 @@ class RetrievalChain:
     def web_search(self, query: str) -> str:
         return self.search.run(query)
 
-    def build_chain(self, runnable):
-        self.chain = RunnableSequence(
-            {
-                "context": runnable,
-                "history": RunnableLambda(self.memory.load_memory_variables) | itemgetter("history"),
-            },
-            self.prompt,
-            self.model,
-            self.output_parser
-        )
-
     def invoke(self, query: str) -> str:
         # 是否加载知识库
         if self.retriever_mode == RetrievalMode.WITH_FILE_RETRIEVER:
@@ -97,14 +76,18 @@ class RetrievalChain:
                 query, self.docs, self.emb_model, self.index, top_k=2
             )
             query = f"""你是一个智能助手，请基于以下资料和之前的对话历史，自然地回答用户的问题: {query}。\n{context}\n。"""
-        runnable = RunnablePassthrough()
+        
         # 是否网络搜索
         if self.search_mode == SearchMode.WEB:
-            runnable |= RunnableLambda(self.web_search)
-        self.build_chain(runnable)
+            web_result = self.web_search(query)
+            query = f"{query}\n\n网络搜索结果: {web_result}"
+        
+        # 创建处理流程
+        chain = self.prompt | self.model | self.output_parser
+        
         # 执行链
-        response = self.chain.invoke(query)
-        self.memory.save_context({"input": query}, {"output": response})
+        response = chain.invoke({"input": query})
+        
         return response
 
 # retrieval_chain = RetrievalChain()

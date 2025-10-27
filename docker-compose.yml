@@ -1,0 +1,26 @@
+version: '3.8'  # 指定使用的 Docker Compose 配置版本为3.8
+
+services:
+  ai-langchain:
+    build:
+      context: .  # 指定构建镜像的上下文路径
+      dockerfile: Dockerfile  # 指定构建镜像的 Dockerfile 文件
+    container_name: ai-langchain  # 指定容器名称
+    ports:
+      - "7860:7860"  # 将容器内部的 7860 端口映射到宿主机的 7860 端口
+    volumes:
+      # 挂载 .env 文件以使用环境变量
+      - ./.env:/app/.env  # 将宿主机的 .env 文件挂载到容器内的 /app/.env 路径
+    environment:
+      # 从 .env 文件读取，也可以通过这里直接设置
+      - OPENAI_API_KEY=${OPENAI_API_KEY}  # 从宿主机 .env 文件读取 OPENAI_API_KEY 环境变量
+      - SERPAPI_API_KEY=${SERPAPI_API_KEY}  # 从宿主机 .env 文件读取 SERPAPI_API_KEY 环境变量
+    restart: no # 禁用自动重启
+    networks:
+      - ai-network  # 将这个服务加入到名为ai-network的网络中（网络定义在下面）
+
+networks:
+  ai-network:
+  # 创建一个名为ai-network的网络，驱动类型为bridge（Docker 默认的网络模式，用于同一宿主机内的容器通信）。
+  # 虽然这里只有一个服务，但如果未来添加其他服务（比如数据库），只需也加入这个网络，就能实现容器间的互相访问。
+    driver: bridge

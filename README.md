@@ -41,6 +41,34 @@ python main.py
 
 启动后访问显示的本地地址（通常是 `http://127.0.0.1:7860`）
 
+## 🐳 Docker 部署
+
+### 使用 Docker Compose 部署
+
+#### 1. 启动服务
+
+```bash
+docker-compose up -d
+```
+
+#### 2. 查看日志
+
+```bash
+docker-compose logs -f
+```
+
+#### 3. 停止服务
+
+```bash
+docker-compose down
+```
+
+#### 4. 重新构建并启动
+
+```bash
+docker-compose up -d --build
+```
+
 ## 📖 使用指南
 
 ### 1. 上传文档
@@ -68,6 +96,9 @@ AI_LangChain/
 ├── chain.py             # 检索链核心逻辑
 ├── fileload.py          # 文档加载工具类
 ├── requirements.txt     # 项目依赖
+├── Dockerfile           # Docker 构建文件
+├── docker-compose.yml   # Docker Compose 配置文件
+├── .dockerignore        # Docker 忽略文件
 ├── .env                 # 环境变量配置
 └── README.md           # 项目说明文档
 ```
